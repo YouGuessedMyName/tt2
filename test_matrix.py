@@ -75,8 +75,8 @@ def create_room_json(visibility):
 
 # Login to the three sessions.
 one_session = login_user("one", "one")
-# two_session = login_user("two", "two")
-# three_session = login_user("three", "three")
+two_session = login_user("two", "two")
+three_session = login_user("three", "three")
 
 ### START TESTS ###
 def test1():
@@ -108,21 +108,75 @@ def test1():
     json=text_message("Message from one that should succeed")
   )
   assert response_message_one.ok, "Failed to send message."
-  logging.info("[Test 1] One succesfully sent message.")
+  logging.info("[Test 1] One succesfully send message.")
   one_message_event_id = response_message_one.json()["event_id"]
   
   # Two: fail to send a message in the room.
 
+# Test 6: Ban user from room
 def test6():
-  """Ban user from room."""
+  # One : Create a public room.
   create_room_json6 = create_room_json("public")
-  headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
+  one_auth_headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
   response_create_room_6 = requests.post(
     FULL_URL + "createRoom",
-    headers=headers,
+    headers=one_auth_headers,
     json= create_room_json6,
   )
   assert response_create_room_6.ok, "Failed to create room."
+  logging.info("[Test 6] Created room succesfully.")
+  room_id = response_create_room_6.json()["room_id"]
+
+  # Two: Join the room.
+  two_auth_headers = {"Authorization": f"Bearer {two_session["access_token"]}"}
+  response_join_room_6 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=two_auth_headers
+  )
+  assert response_join_room_6, "Failed to join room."
+  logging.info("[Test 6] Joined room succesfully.")
+
+  # Two: Send a message in the room.
+  response_message_two_1 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=two_auth_headers,
+    json=text_message("Message from two that should succeed")
+  )
+  assert response_message_two_1.ok, "Failed to send message."
+  logging.info("[Test 6] Two succesfully send message.")
+  two_message_1_event_id = response_message_two_1.json()["event_id"]
+
+  # One: Ban 'Two' from the room.
+  response_ban_two = requests.post(
+    FULL_URL + "rooms/" + room_id + "/ban",
+    headers=one_auth_headers,
+    json = {"user_id": "@two:localhost",
+            "reason": "Should be banned."}
+  )
+  assert response_ban_two.ok, "Failed to ban user."
+  logging.info("[Test 6] One succesfully banned Two")
+
+  # Two: Send a message in the room (should fail).
+  response_message_two_2 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=two_auth_headers,
+    json=text_message("Message from two that should fail")
+  )
+  assert response_message_two_2.ok, "Failed to send message."
+  logging.info("[Test 6] Two succesfully send message.")
+  two_message_2_event_id = response_message_two_2.json()["event_id"]
+
+  # One: Send a message in the room.
+
+  # Two: Read messages from the room (should fail).
+
+  # Two: Join the room (should fail).
+
+  # One: Invites 'Three'.
+
+  # One: Invites 'Two' (should fail).
+
+  # One: Read messages from the room.
 
 
-test1()
+test6()
