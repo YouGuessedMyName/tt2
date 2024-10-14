@@ -3,3 +3,4 @@ poetry shell
 python3 test_matrix.py
 
 # If you get a 429 (Too many requests)
+docker restart NAME_DOCKER_CONTAINER.
