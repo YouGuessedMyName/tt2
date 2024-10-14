@@ -9,7 +9,7 @@ from time import sleep
 BASE_URL = "http://localhost:8008"
 FULL_URL = BASE_URL + "/_matrix/client/v3/"
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 GET_TOKEN_BODY = {
   "type": "m.login.password",
@@ -81,15 +81,16 @@ def test1():
   assert response_create_room_1.ok, "Failed to create room."
 
 
-test1()# Ban user in room
 def test6():
-    requests.post(
-        FULL_URL + "createRoom",
-        json = {"name":"room60",
-                "visibility":"public",
-                "preset":"public_chat",
-                "room_alias_name":"room60",
-                "topic":"TOPIC",
-                "initial_state":[]},
-        auth = one_session
-    )
+  """Ban user from room."""
+  create_room_json6 = create_room_json("public")
+  headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
+  response_create_room_6 = requests.post(
+    FULL_URL + "createRoom",
+    headers=headers,
+    json= create_room_json6,
+  )
+  assert response_create_room_6.ok, "Failed to create room."
+
+
+test1()
