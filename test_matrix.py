@@ -113,4 +113,16 @@ def test1():
   
   # Two: fail to send a message in the room.
 
+def test6():
+  """Ban user from room."""
+  create_room_json6 = create_room_json("public")
+  headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
+  response_create_room_6 = requests.post(
+    FULL_URL + "createRoom",
+    headers=headers,
+    json= create_room_json6,
+  )
+  assert response_create_room_6.ok, "Failed to create room."
+
+
 test1()
