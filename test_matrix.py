@@ -44,4 +44,15 @@ three_session = login_user("three", "three")
 print(one_session)
 
 ### START TESTS ###
-
+# Ban user in room
+def test6():
+    requests.post(
+        FULL_URL + "createRoom",
+        json = {"name":"room60",
+                "visibility":"public",
+                "preset":"public_chat",
+                "room_alias_name":"room60",
+                "topic":"TOPIC",
+                "initial_state":[]},
+        auth = one_session
+    )
