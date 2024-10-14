@@ -22,7 +22,6 @@ GET_TOKEN_BODY = {
 
 # Check if login with password is enabled
 login_enabled_response = requests.get(FULL_URL + "login")
-logging.info(login_enabled_response)
 assert login_enabled_response.ok, "Server disabled password login, or the server is not running at all."
 
 def generate_login_body(user, password) -> dict:
@@ -70,11 +69,11 @@ CREATE_ROOM_JSON = {
     "initial_state":[]
   }
 
-def create_room_json(visibility):
+def create_room_json(preset):
   res = copy.deepcopy(CREATE_ROOM_JSON)
   res["name"] = random_room_name()
   res["room_alias_name"] = res["name"]
-  res["visibility"] = visibility
+  res["preset"] = preset
   return res
 
 def get_auth_header(user_session):
@@ -83,7 +82,7 @@ def get_auth_header(user_session):
 # Login to the three sessions.
 one_session = login_user("one", "one")
 two_session = login_user("two", "two")
-# three_session = login_user("three", "three")
+three_session = login_user("three", "three")
 
 ### START TESTS ###
 def test1():
@@ -161,9 +160,68 @@ def test1():
   assert len(response_one_reading.json()["chunk"]) == 2 # Exactly two messages in room
   logging.info("[Test 1] SUCCESS")
 
+def test2():
+  MSG2_SUCCESS = "Message from two that should succeed"
+  MSG3_FAIL = "Message from three that should fail"
+  # One: create room
+  response_create_room_1 = requests.post(
+    FULL_URL + "createRoom",
+    headers =get_auth_header(one_session),
+    json = create_room_json("trusted_private_chat"),
+  )
+  assert response_create_room_1.ok
+  logging.info("[TEST 2] Sucesfully created room.")
+  room_id = response_create_room_1.json()["room_id"]
+
+  # One: invite two
+  response_invite_2 = requests.post(
+    FULL_URL + "rooms/" + room_id + "/invite",
+    headers = get_auth_header(one_session),
+    json={
+      "reason": "Welcome",
+      "user_id": two_session["user_id"]
+    }
+  )
+  assert response_invite_2.ok
+  logging.info("[TEST 2] Succesfully invited two.")
+
+  # Two: join room
+  response_join_2 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_2.ok
+  logging.info("[TEST 2] Two succesfully joined the room.")
+
+  # Two: send message
+  response_send_message_2 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(two_session),
+    json=text_message(MSG2_SUCCESS)
+  )
+  assert response_send_message_2.ok
+  logging.info("[TEST 2] Two succesfully sent a message.")
+
+  # Three: fail to join room
+  response_join_3 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(three_session),
+  )
+  assert response_join_3.status_code == 403
+  logging.info("[TEST 2] Three succesfully failed to joined the room.")
+
+  # Three: fail to send message
+  response_send_message_3 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(three_session),
+    json=text_message(MSG3_FAIL)
+  )
+  assert response_send_message_3.status_code == 403
+  logging.info("[TEST 2] Three succesfully failed to send a message.")
+
 def test6():
   """Ban user from room."""
-  create_room_json6 = create_room_json("public")
+  create_room_json6 = create_room_json("public_chat")
   headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
   response_create_room_6 = requests.post(
     FULL_URL + "createRoom",
@@ -172,5 +230,4 @@ def test6():
   )
   assert response_create_room_6.ok, "Failed to create room."
 
-
-test1()
+test2()
