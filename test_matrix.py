@@ -37,7 +37,7 @@ def login_user(user, password) -> dict:
       json = generate_login_body(user, password)
   )
   logging.debug(response)
-  assert response.ok, f"Login failed for user {user}"
+  assert response.ok, f"Login failed for user {user}. Please run docker restart NAME_CONTAINER"
   return response.json()
   
 def random_room_name():
@@ -56,6 +56,10 @@ def text_message(text):
   res["body"] = text
   return res
 
+MESSAGES_WITH_FILTER = "/messages?filter=%7B%22types%22%3A%5B%22m.room.message%22%5D%7D"
+
+def find_event(json, event_id):
+  return list(filter(lambda msg: msg["event_id"] == event_id, json["chunk"]))[0]
 
 CREATE_ROOM_JSON = {
     "name":"room11",
@@ -73,6 +77,9 @@ def create_room_json(visibility):
   res["visibility"] = visibility
   return res
 
+def get_auth_header(user_session):
+  return {"Authorization": f"Bearer {user_session["access_token"]}"}
+
 # Login to the three sessions.
 one_session = login_user("one", "one")
 two_session = login_user("two", "two")
@@ -80,12 +87,14 @@ three_session = login_user("three", "three")
 
 ### START TESTS ###
 def test1():
+  MSG1 = "Message from one that should succeed"
+  MSG2_FAIL = "Message from two that should fail"
+  MSG2_SUCCES = "Message from two that should succeed"
   # One: Create a public room.
   create_room_json1 = create_room_json("public")
-  one_auth_headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
   response_create_room_1 = requests.post(
     FULL_URL + "createRoom",
-    headers=one_auth_headers,
+    headers=get_auth_header(one_session),
     json= create_room_json1,
   )
   assert response_create_room_1.ok, "Failed to create room."
@@ -95,7 +104,7 @@ def test1():
   # One: Create the same public room again (supposed to fail).
   response_create_room_2 = requests.post(
     FULL_URL + "createRoom",
-    headers=one_auth_headers,
+    headers=get_auth_header(one_session),
     json=create_room_json1,
   )
   assert not response_create_room_2.ok, "Re-created room with same succesfully? This should not happen."
@@ -104,14 +113,53 @@ def test1():
   # One: send a message in the room.
   response_message_one = requests.put(
     FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
-    headers=one_auth_headers,
-    json=text_message("Message from one that should succeed")
+    headers=get_auth_header(one_session),
+    json=text_message(MSG1)
   )
   assert response_message_one.ok, "Failed to send message."
   logging.info("[Test 1] One succesfully send message.")
   one_message_event_id = response_message_one.json()["event_id"]
   
-  # Two: fail to send a message in the room.
+  # Two: fail to send a message in the room (supposed to fail).
+  response_message_two = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(two_session),
+    json=text_message(MSG2_FAIL)
+  )
+  assert response_message_two.status_code == 403
+  assert response_message_two.json()["errcode"] == "M_FORBIDDEN"
+  assert response_message_two.json()["error"].find("not in room")
+  logging.info("[Test 1] Two failed succesfully to send message.")
+
+  # Two: join room.
+  response_join_two = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_two.ok
+  logging.info("[Test 1] Two joined the room succesfully.")
+
+  # Two: Send a message in the room.
+  response_message_two_retry = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(two_session),
+    json=text_message(MSG2_SUCCES)
+  )
+  assert response_message_two_retry.ok
+  logging.info("[Test 1] Two sent a message succesfully.")
+  two_message_retry_event_id = response_message_two_retry.json()["event_id"]
+
+  # One: read the messages in the room.
+  response_one_reading = requests.get(
+    FULL_URL + "rooms/" + room_id + MESSAGES_WITH_FILTER,
+    headers=get_auth_header(one_session)
+  )
+  server_one_message = find_event(response_one_reading.json(), event_id=one_message_event_id)
+  server_two_message = find_event(response_one_reading.json(), event_id=two_message_retry_event_id)
+  assert server_one_message["content"]["body"] == MSG1
+  assert server_two_message["content"]["body"] == MSG2_SUCCES
+  assert len(response_one_reading.json()["chunk"]) == 2 # Exactly two messages in room
+  logging.info("[Test 1] SUCCESS")
 
 # Test 6: Ban user from room
 def test6():
