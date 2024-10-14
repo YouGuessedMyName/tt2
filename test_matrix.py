@@ -9,7 +9,7 @@ from time import sleep
 BASE_URL = "http://localhost:8008"
 FULL_URL = BASE_URL + "/_matrix/client/v3/"
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 GET_TOKEN_BODY = {
   "type": "m.login.password",
@@ -43,6 +43,19 @@ def login_user(user, password) -> dict:
 def random_room_name():
   return ''.join(random.choices(string.ascii_uppercase + string.digits, k=50))
 
+def random_number_string():
+  return str(random.randint)
+
+TEXT_MESSAGE_JSON = {
+    "msgtype": "m.text",
+    "body": "Message from one that should succeed"
+}
+
+def text_message(text):
+  res = copy.deepcopy(TEXT_MESSAGE_JSON)
+  res["body"] = text
+  return res
+
 
 CREATE_ROOM_JSON = {
     "name":"room11",
@@ -62,23 +75,42 @@ def create_room_json(visibility):
 
 # Login to the three sessions.
 one_session = login_user("one", "one")
-sleep(0.2)
-two_session = login_user("two", "two")
-sleep(0.2)
-three_session = login_user("three", "three")
-print(one_session)
+# two_session = login_user("two", "two")
+# three_session = login_user("three", "three")
 
 ### START TESTS ###
 def test1():
-  """Creating a public room."""
+  # One: Create a public room.
   create_room_json1 = create_room_json("public")
-  headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
+  one_auth_headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
   response_create_room_1 = requests.post(
     FULL_URL + "createRoom",
-    headers=headers,
+    headers=one_auth_headers,
     json= create_room_json1,
   )
   assert response_create_room_1.ok, "Failed to create room."
+  logging.info("[Test 1] Created room succesfully.")
+  room_id = response_create_room_1.json()["room_id"]
 
+  # One: Create the same public room again (supposed to fail).
+  response_create_room_2 = requests.post(
+    FULL_URL + "createRoom",
+    headers=one_auth_headers,
+    json=create_room_json1,
+  )
+  assert not response_create_room_2.ok, "Re-created room with same succesfully? This should not happen."
+  logging.info("[Test 1] Succesfully failed to create a room with the same name again.")
+
+  # One: send a message in the room.
+  response_message_one = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=one_auth_headers,
+    json=text_message("Message from one that should succeed")
+  )
+  assert response_message_one.ok, "Failed to send message."
+  logging.info("[Test 1] One succesfully sent message.")
+  one_message_event_id = response_message_one.json()["event_id"]
+  
+  # Two: fail to send a message in the room.
 
 test1()
