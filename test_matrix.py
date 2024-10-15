@@ -219,6 +219,9 @@ def test2():
   assert response_send_message_3.status_code == 403
   logging.info("[TEST 2] Three succesfully failed to send a message.")
 
+def test3():
+  
+
 def test6():
   """Ban user from room."""
   create_room_json6 = create_room_json("public_chat")
