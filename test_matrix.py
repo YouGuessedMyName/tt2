@@ -83,7 +83,6 @@ def get_auth_header(user_session):
 one_session = login_user("one", "one")
 two_session = login_user("two", "two")
 three_session = login_user("three", "three")
-three_session = login_user("three", "three")
 
 ### START TESTS ###
 def test1():
@@ -91,7 +90,7 @@ def test1():
   MSG2_FAIL = "Message from two that should fail"
   MSG2_SUCCES = "Message from two that should succeed"
   # One: Create a public room.
-  create_room_json1 = create_room_json("public")
+  create_room_json1 = create_room_json("public_chat")
   response_create_room_1 = requests.post(
     FULL_URL + "createRoom",
     headers=get_auth_header(one_session),
@@ -221,7 +220,271 @@ def test2():
   logging.info("[TEST 2] Three succesfully failed to send a message.")
 
 def test3():
-  pass
+  MSG3_SUCCESS = "Message from 3 that should succeed"
+  MSG3_FAIL = "Message from 3 that should fail"
+  # One: create room
+  response_create_room = requests.post(
+    FULL_URL + "createRoom",
+    headers=get_auth_header(one_session),
+    json= create_room_json("public_chat"),
+  )
+  
+  
+  assert response_create_room.ok
+  room_id = response_create_room.json()["room_id"]
+  print(room_id)
+  print(one_session)
+  logging.info("[Test 3] One: created room")
+  # Two: fail to kick three, two not in room
+  response_kick_two = requests.post(
+    FULL_URL + "rooms/" + room_id + "/kick",
+    headers=get_auth_header(two_session),
+    json={
+      "user_id": three_session["user_id"],
+      "reason": "You smell."
+    }
+  )
+  assert response_kick_two.status_code == 403
+  assert response_kick_two.json()["errcode"] == "M_FORBIDDEN"
+  assert response_kick_two.json()["error"].find("not in room")
+  logging.info("[Test 3] Two failed succesfully to kick three.")
+  # Two: join power room
+  response_join_two = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_two.ok
+  logging.info("[Test 3] Two joined the room succesfully.")
+  # Two: fail to kick three, three not in room
+  response_kick_two = requests.post(
+    FULL_URL + "rooms/" + room_id + "/kick",
+    headers=get_auth_header(two_session),
+    json={
+      "user_id": three_session["user_id"],
+      "reason": "You smell."
+    }
+  )
+  assert response_kick_two.status_code == 403
+  assert response_kick_two.json()["errcode"] == "M_FORBIDDEN"
+  assert response_kick_two.json()["error"].find("not in room")
+  logging.info("[Test 3] Two failed succesfully to kick three (again).")
+  # Three: join power room
+  response_join_two = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(three_session),
+  )
+  assert response_join_two.ok
+  logging.info("[Test 3] Three joined the room succesfully.")
+  # Three: send message
+  response_send_message_3 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(three_session),
+    json=text_message(MSG3_SUCCESS)
+  )
+  assert response_send_message_3.ok
+  logging.info("[TEST 3] Trhee succesfully sent a message.")
+  three_message_event_id = response_send_message_3.json()["event_id"]
+  # Two: fail to kick three because no permission
+  response_kick_two = requests.post(
+    FULL_URL + "rooms/" + room_id + "/kick",
+    headers=get_auth_header(two_session),
+    json={
+      "user_id": three_session["user_id"],
+      "reason": "You smell."
+    }
+  )
+  assert response_kick_two.status_code == 403
+  assert response_kick_two.json()["errcode"] == "M_FORBIDDEN"
+  assert response_kick_two.json()["error"].find("not in room")
+  logging.info("[Test 3] Two failed succesfully to kick three (again, again).")
+  # One: set power level of two to 49
+  response_set_power_level_49 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/state/m.room.power_levels/" + random_number_string(),
+    headers=get_auth_header(one_session),
+    json={
+    "users":
+        {
+            one_session["user_id"]:100,
+            two_session["user_id"]:49
+        },
+        "users_default":0,
+        "events":
+        {
+            "m.room.name":50,
+            "m.room.power_levels":100,
+            "m.room.history_visibility":100,
+            "m.room.canonical_alias":50,
+            "m.room.avatar":50,"m.room.tombstone":100,
+            "m.room.server_acl":100,"m.room.encryption":100,
+            "m.space.child":50,
+            "m.room.topic":50,
+            "m.room.pinned_events":50,
+            "m.reaction":0,
+            "m.room.redaction":0,
+            "org.matrix.msc3401.call":50,
+            "org.matrix.msc3401.call.member":50,
+            "im.vector.modular.widgets":50,
+            "io.element.voice_broadcast_info":50
+        },
+    "events_default":0,
+    "state_default":50,
+    "ban":50,
+    "kick":50,
+    "redact":50,
+    "invite":50,
+    "historical":100,
+    "m.call.invite":50
+  }
+  )
+  assert response_set_power_level_49.ok
+  logging.info("[Test 3] Succesfully set power level of two to 49.")
+  # Two: fail to kick three again because no permission
+  response_kick_two = requests.post(
+    FULL_URL + "rooms/" + room_id + "/kick",
+    headers=get_auth_header(two_session),
+    json={
+      "user_id": three_session["user_id"],
+      "reason": "You smell."
+    }
+  )
+  assert response_kick_two.status_code == 403
+  assert response_kick_two.json()["errcode"] == "M_FORBIDDEN"
+  assert response_kick_two.json()["error"].find("not in room")
+  logging.info("[Test 3] Two failed succesfully to kick three (again, again, again).")
+  # One: set power level of two to 50
+  response_set_power_level_50 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/state/m.room.power_levels/" + random_number_string(),
+    headers=get_auth_header(one_session),
+    json={
+    "users":
+        {
+            one_session["user_id"]:100,
+            two_session["user_id"]:50
+        },
+        "users_default":0,
+        "events":
+        {
+            "m.room.name":50,
+            "m.room.power_levels":100,
+            "m.room.history_visibility":100,
+            "m.room.canonical_alias":50,
+            "m.room.avatar":50,"m.room.tombstone":100,
+            "m.room.server_acl":100,"m.room.encryption":100,
+            "m.space.child":50,
+            "m.room.topic":50,
+            "m.room.pinned_events":50,
+            "m.reaction":0,
+            "m.room.redaction":0,
+            "org.matrix.msc3401.call":50,
+            "org.matrix.msc3401.call.member":50,
+            "im.vector.modular.widgets":50,
+            "io.element.voice_broadcast_info":50
+        },
+    "events_default":0,
+    "state_default":50,
+    "ban":50,
+    "kick":50,
+    "redact":50,
+    "invite":50,
+    "historical":100,
+    "m.call.invite":50
+  }
+  )
+  assert response_set_power_level_50.ok
+  logging.info("[Test 3] Succesfully set power level of two to 50.")
+
+  # Two: kick three
+  response_kick_two = requests.put(
+    FULL_URL + "rooms/" + room_id + "/kick",
+    headers=get_auth_header(two_session),
+    json={
+      "user_id": three_session["user_id"],
+      "reason": "You smell."
+    }
+  )
+  assert response_kick_two.ok
+  logging.info("[Test 3] Two succesfully kicked three.")
+  # Three: fail to send message
+  response_send_message_3 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(three_session),
+    json=text_message(MSG3_FAIL)
+  )
+  assert response_send_message_3.status_code == 403
+  assert response_send_message_3.json()["errcode"] == "M_FORBIDDEN"
+  assert response_send_message_3.json()["error"].find("not in room")
+  logging.info("[Test 3] Three failed succesfully to send message after being kicked from the room.")
+  # One: read messages
+  response_one_reading = requests.get(
+    FULL_URL + "rooms/" + room_id + MESSAGES_WITH_FILTER,
+    headers=get_auth_header(one_session)
+  )
+  server_three_message = find_event(response_one_reading.json(), event_id=three_message_event_id)
+  assert server_three_message["content"]["body"] == MSG3_SUCCESS
+  assert len(response_one_reading.json()["chunk"]) == 1 # Exactly two messages in room
+  logging.info("[Test 3] SUCCESS")
+
+def test4():
+  # One: create lobby
+  create_lobby = requests.post(
+    FULL_URL + "createRoom",
+    headers=get_auth_header(one_session),
+    json= create_room_json("public_chat"),
+  )
+  assert create_lobby.ok, "Failed to create lobby."
+  logging.info("[Test 4] Succesfully created lobby")
+  lobby_id = create_lobby.json()["room_id"]
+  
+  
+  # One: create hotel
+  create_hotel = requests.post(
+    FULL_URL + "createRoom",
+    headers=get_auth_header(one_session),
+    json= create_room_json("private_chat"),
+  )
+  assert create_hotel.ok, "Failed to create hotel."
+  logging.info("[Test 4] Succesfully created hotel")
+  hotel_id = create_hotel.json()["room_id"]
+  
+  # One: set join rule for hotel
+  set_join_rule = requests.put(
+    FULL_URL + "rooms/" + hotel_id + "/state/m.room.join_rules/" + random_number_string(),
+    headers=get_auth_header(one_session),
+    json={
+    "join_rule": "restricted",
+    "allow": [
+      {
+        "room_id": lobby_id,
+        "type": "m.room_membership"
+      }
+    ]}
+  )
+  assert set_join_rule.ok, "Failed to set join rule."
+  logging.info("[Test 4] Succesfully set join rule.")
+  
+  # Two: fail to join hotel
+  response_join_two = requests.post(
+    FULL_URL + "join/" + hotel_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_two.status_code == 403
+  logging.info("[Test 4] Two failed to join the hotel succesfully.")
+  
+  # Two: join lobby
+  response_two_join_lobby = requests.post(
+    FULL_URL + "join/" + lobby_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_two_join_lobby.ok, "[Test 4] Two failed to join the lobby"
+  logging.info("[Test 4] Two joined the lobby sucessfully.")
+  
+  # Two: join hotel
+  response_join_two = requests.post(
+    FULL_URL + "join/" + hotel_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_two.ok
+  logging.info("[Test 4] Two joined the hotel succesfully.")
 
 # Test 6: Ban user from room
 def test6():
@@ -288,5 +551,6 @@ def test6():
 
   # One: Read messages from the room.
 
-
-test6()
+#test4()
+test3()
+#test6()
