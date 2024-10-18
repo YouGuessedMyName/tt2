@@ -552,6 +552,4 @@ def test6():
 
   # One: Read messages from the room.
 
-#test4()
-test3()
-#test6()
+test6()
