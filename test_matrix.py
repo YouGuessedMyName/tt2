@@ -229,7 +229,6 @@ def test3():
     json= create_room_json("public_chat"),
   )
   
-  
   assert response_create_room.ok
   room_id = response_create_room.json()["room_id"]
   print(room_id)
@@ -485,6 +484,7 @@ def test4():
   )
   assert response_join_two.ok
   logging.info("[Test 4] Two joined the hotel succesfully.")
+  logging.info("[Test 4] Succes.")
 
 # Test 6: Ban user from room
 def test6():
@@ -551,6 +551,7 @@ def test6():
 
   # One: Read messages from the room.
 
-#test4()
-test3()
+test6()
+# test4()
+# test3()
 #test6()
