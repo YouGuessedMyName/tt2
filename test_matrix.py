@@ -488,12 +488,14 @@ def test4():
 
 # Test 6: Ban user from room
 def test6():
+  MSG2_FAIL = "Message from two that should fail"
+  MSG2_SUCCES = "Message from two that should succeed"
+
   # One : Create a public room.
-  create_room_json6 = create_room_json("public")
-  one_auth_headers = {"Authorization": f"Bearer {one_session["access_token"]}"}
+  create_room_json6 = create_room_json("public_chat")
   response_create_room_6 = requests.post(
     FULL_URL + "createRoom",
-    headers=one_auth_headers,
+    headers=get_auth_header(one_session),
     json= create_room_json6,
   )
   assert response_create_room_6.ok, "Failed to create room."
@@ -504,7 +506,7 @@ def test6():
   two_auth_headers = {"Authorization": f"Bearer {two_session["access_token"]}"}
   response_join_room_6 = requests.post(
     FULL_URL + "join/" + room_id,
-    headers=two_auth_headers
+    headers=get_auth_header(two_session),
   )
   assert response_join_room_6, "Failed to join room."
   logging.info("[Test 6] Joined room succesfully.")
@@ -512,8 +514,8 @@ def test6():
   # Two: Send a message in the room.
   response_message_two_1 = requests.put(
     FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
-    headers=two_auth_headers,
-    json=text_message("Message from two that should succeed")
+    headers=get_auth_header(two_session),
+    json=text_message(MSG2_SUCCES)
   )
   assert response_message_two_1.ok, "Failed to send message."
   logging.info("[Test 6] Two succesfully send message.")
@@ -522,8 +524,8 @@ def test6():
   # One: Ban 'Two' from the room.
   response_ban_two = requests.post(
     FULL_URL + "rooms/" + room_id + "/ban",
-    headers=one_auth_headers,
-    json = {"user_id": "@two:localhost",
+    headers=get_auth_header(one_session),
+    json = {"user_id": two_session["user_id"],
             "reason": "Should be banned."}
   )
   assert response_ban_two.ok, "Failed to ban user."
@@ -532,12 +534,11 @@ def test6():
   # Two: Send a message in the room (should fail).
   response_message_two_2 = requests.put(
     FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
-    headers=two_auth_headers,
-    json=text_message("Message from two that should fail")
+    headers=get_auth_header(two_session),
+    json=text_message(MSG2_FAIL)
   )
-  assert response_message_two_2.ok, "Failed to send message."
-  logging.info("[Test 6] Two succesfully send message.")
-  two_message_2_event_id = response_message_two_2.json()["event_id"]
+  assert response_message_two_2.status_code == 403
+  logging.info("[Test 6] Two succesfully failed to send message.")
 
   # One: Send a message in the room.
 
@@ -551,7 +552,6 @@ def test6():
 
   # One: Read messages from the room.
 
-test6()
-# test4()
-# test3()
+#test4()
+test3()
 #test6()
