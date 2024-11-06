@@ -3,9 +3,12 @@ import logging
 import copy
 import random
 import string
+import sys
+import subprocess
 from time import sleep
 
 ### ESTABLISH SESSIONS ###
+SYNAPSE_DOCKER_NAME = "synapse"
 BASE_URL = "http://localhost:8008"
 FULL_URL = BASE_URL + "/_matrix/client/v3/"
 
@@ -78,15 +81,6 @@ def create_room_json(preset):
 
 def get_auth_header(user_session):
   return {"Authorization": f"Bearer {user_session["access_token"]}"}
-
-# Login to the three sessions.
-one_session = login_user("one", "one")
-two_session = login_user("two", "two")
-three_session = login_user("three", "three")
-
-print(one_session)
-print(two_session)
-print(three_session)
 
 ### START TESTS ###
 def test1():
@@ -714,5 +708,32 @@ def test12():
   assert response_two_reading.ok
   assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after they left the room"
   logging.info("[Test 12] Two succesfully failed to read messages with filter.")
-
-test6()
+  
+TESTS = {
+  "1": test1,
+  "2": test2,
+  "3": test3,
+  "4": test4,
+  # "5": test5,
+  "6": test6,
+  # "7": test7,
+  # "8": test8,
+  # "9": test9,
+  # "10": test10,
+  "11": test11,
+  "12": test12,
+}
+  
+if (len(sys.argv) <= 1):
+  print("Specifiy the test to run in the argument")
+  exit()
+else:
+  print("Restarting synapse server")
+  subprocess.run(["docker", "restart", "synapse"])
+  sleep(3)
+  # Login to the three sessions.
+  one_session = login_user("one", "one")
+  two_session = login_user("two", "two")
+  three_session = login_user("three", "three")
+  print(f"Running test {sys.argv[1]}")
+  TESTS[sys.argv[1]]()
