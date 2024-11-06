@@ -1,6 +1,6 @@
 # Testing techniques Assignment 2
 ## Requirements & preparation
-A docker container running synapse.
+You need a docker container running synapse.
 
 In the file `test_matrix.py`, set the following variables according to your specific setup:
 * SYNAPSE_DOCKER_NAME: The name of the docker container
