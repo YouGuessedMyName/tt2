@@ -17,6 +17,8 @@ docker exec -it synapse register_new_matrix_user BASE_URL -c /data/homeserver.ya
 ```
 
 ## Usage
+N.B. Use a unix-based shell, on Windows you can use git bash.
+
 Run all tests:
 ```sh
 ./run_all.sh
@@ -26,4 +28,4 @@ Run a specific test:
 ```sh
 python3 test_matrix.py n
 ```
-(Where `n` is the number of the test that you want to run.)
+where `n` is the number of the test that you want to run.
