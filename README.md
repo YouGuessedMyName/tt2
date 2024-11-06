@@ -4,7 +4,7 @@ You need a docker container running synapse.
 
 In the file `test_matrix.py`, set the following variables according to your specific setup:
 * SYNAPSE_DOCKER_NAME: The name of the docker container
-* BASE_URL: "http://localhost:8008"
+* BASE_URL: The URL where your synapse is live (e.g. "http://localhost:8008")
 
 Create three users on the Synapse server.
 * User 'one' with password 'one'
