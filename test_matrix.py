@@ -542,7 +542,7 @@ def test6():
     FULL_URL + "rooms/" + room_id + "/messages",
     headers=get_auth_header(two_session)
   )
-  assert response_two_reading.ok
+  assert response_two_reading.ok, "Could not"
   # assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after were kicked out of the room"
   # logging.info("[Test 11] Two succesfully failed to read messages.")
 
@@ -728,7 +728,7 @@ if (len(sys.argv) <= 1):
   print("Specifiy the test to run in the argument")
   exit()
 else:
-  print("Restarting synapse server")
+  print(f"\nRestarting synapse server for test {sys.argv[1]}")
   subprocess.run(["docker", "restart", "synapse"])
   sleep(3)
   # Login to the three sessions.
@@ -737,3 +737,4 @@ else:
   three_session = login_user("three", "three")
   print(f"Running test {sys.argv[1]}")
   TESTS[sys.argv[1]]()
+  print(f"Passed test {sys.argv[1]}")
