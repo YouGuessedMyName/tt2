@@ -84,6 +84,10 @@ one_session = login_user("one", "one")
 two_session = login_user("two", "two")
 three_session = login_user("three", "three")
 
+print(one_session)
+print(two_session)
+print(three_session)
+
 ### START TESTS ###
 def test1():
   MSG1 = "Message from one that should succeed"
@@ -525,11 +529,19 @@ def test6():
   response_ban_two = requests.post(
     FULL_URL + "rooms/" + room_id + "/ban",
     headers=get_auth_header(one_session),
-    json = {"user_id": two_session["user_id"],
+    json = {"user_id": "@two:localhost",
             "reason": "Should be banned."}
   )
+  print(FULL_URL + "rooms/" + room_id + "/ban")
+  print(response_ban_two.json())
   assert response_ban_two.ok, "Failed to ban user."
   logging.info("[Test 6] One succesfully banned Two")
+  
+  response_test_members = requests.get(
+    FULL_URL + "rooms/" + room_id + "/members",
+    headers=get_auth_header(one_session)
+  )
+  print(response_test_members.json())
 
   # Two: Send a message in the room (should fail).
   response_message_two_2 = requests.put(
@@ -537,8 +549,11 @@ def test6():
     headers=get_auth_header(two_session),
     json=text_message(MSG2_FAIL)
   )
+  print(response_message_two_2.json())
   assert response_message_two_2.status_code == 403
   logging.info("[Test 6] Two succesfully failed to send message.")
+  
+  
 
   # One: Send a message in the room.
 

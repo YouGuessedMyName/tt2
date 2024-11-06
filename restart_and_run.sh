@@ -1,3 +1,3 @@
 docker restart synapse
-sleep 2.5
+sleep 3
 python3 test_matrix.py
