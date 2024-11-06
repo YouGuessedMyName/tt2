@@ -7,11 +7,13 @@ import sys
 import subprocess
 from time import sleep
 
-### ESTABLISH SESSIONS ###
+### CONSTANTS SET BY THE USER ###
 SYNAPSE_DOCKER_NAME = "synapse"
 BASE_URL = "http://localhost:8008"
-FULL_URL = BASE_URL + "/_matrix/client/v3/"
 
+
+
+FULL_URL = BASE_URL + "/_matrix/client/v3/"
 logging.basicConfig(level=logging.INFO)
 
 GET_TOKEN_BODY = {
