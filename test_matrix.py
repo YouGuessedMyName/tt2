@@ -526,6 +526,7 @@ def test6():
   two_message_1_event_id = response_message_two_1.json()["event_id"]
 
   # One: Ban 'Two' from the room.
+  logging.info("[Test 11] One succesfully kicked Two")
   response_ban_two = requests.post(
     FULL_URL + "rooms/" + room_id + "/ban",
     headers=get_auth_header(one_session),
@@ -533,15 +534,23 @@ def test6():
             "reason": "Should be banned."}
   )
   print(FULL_URL + "rooms/" + room_id + "/ban")
-  print(response_ban_two.json())
   assert response_ban_two.ok, "Failed to ban user."
   logging.info("[Test 6] One succesfully banned Two")
   
-  response_test_members = requests.get(
-    FULL_URL + "rooms/" + room_id + "/members",
-    headers=get_auth_header(one_session)
+  # response_test_members = requests.get(
+  #   FULL_URL + "rooms/" + room_id + "/members",
+  #   headers=get_auth_header(one_session)
+  # )
+  # print(response_test_members.json())
+  
+  # Two: fail to read messages without filter
+  response_two_reading = requests.get(
+    FULL_URL + "rooms/" + room_id + "/messages",
+    headers=get_auth_header(two_session)
   )
-  print(response_test_members.json())
+  assert response_two_reading.ok
+  # assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after were kicked out of the room"
+  # logging.info("[Test 11] Two succesfully failed to read messages.")
 
   # Two: Send a message in the room (should fail).
   response_message_two_2 = requests.put(
@@ -550,8 +559,10 @@ def test6():
     json=text_message(MSG2_FAIL)
   )
   print(response_message_two_2.json())
-  assert response_message_two_2.status_code == 403
+  assert response_message_two_2.status_code == 403, "Two could send a message, even though they were banned."
   logging.info("[Test 6] Two succesfully failed to send message.")
+  
+  
   
   # One: Send a message in the room.
 
@@ -704,4 +715,4 @@ def test12():
   assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after they left the room"
   logging.info("[Test 12] Two succesfully failed to read messages with filter.")
 
-test11()
+test6()
