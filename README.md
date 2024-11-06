@@ -13,13 +13,13 @@ Create three users on the Synapse server.
 
 You can do this manually, or using:
 ```sh
-docker exec -it synapse register_new_matrix_user BASE_URL -c /data/homeserver.yaml --help
+docker exec -it synapse register_new_matrix_user BASE_URL -c /data/homeserver.yaml
 ```
 
 ## Usage
 Run all tests:
 ```sh
-./run_all
+./run_all.sh
 ```
 
 Run a specific test:
