@@ -572,7 +572,7 @@ def test6():
 
   # One: Read messages from the room.
 
-# test 11: Left user information leak 1
+# test 11: Kicked user information leak 1
 def test11():
   MSG1_SUCCES = "Message from one that should succeed"
   # One: create room
@@ -643,7 +643,7 @@ def test11():
   assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after were kicked out of the room"
   logging.info("[Test 11] Two succesfully failed to read messages with filter.")
 
-# test 12: Left user information leak 2
+# test 12: Left user information leak
 def test12():
   MSG1_SUCCES = "Message from one that should succeed"
   # One: create room
@@ -710,7 +710,75 @@ def test12():
   assert response_two_reading.ok
   assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after they left the room"
   logging.info("[Test 12] Two succesfully failed to read messages with filter.")
+
+# test 13: Banned user information leak
+def test13():
+  MSG1_SUCCES = "Message from one that should succeed"
+  # One: create room
+  response_create_room_1 = requests.post(
+    FULL_URL + "createRoom",
+    headers =get_auth_header(one_session),
+    json = create_room_json("private_chat"),
+  )
+  assert response_create_room_1.ok
+  logging.info("[TEST 12] Sucesfully created room.")
+  room_id = response_create_room_1.json()["room_id"]
   
+  # One: invite two
+  response_invite_2 = requests.post(
+    FULL_URL + "rooms/" + room_id + "/invite",
+    headers = get_auth_header(one_session),
+    json={
+      "reason": "Welcome",
+      "user_id": two_session["user_id"]
+    }
+  )
+  assert response_invite_2.ok
+  logging.info("[TEST 12] Succesfully invited two.")
+  
+  # Two: join the room
+  response_join_two = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_two.ok
+  logging.info("[Test 12] Two joined the room succesfully.")
+  
+  # One: ban two
+  response_ban_two = requests.post(
+    FULL_URL + "rooms/" + room_id + "/ban",
+    headers=get_auth_header(one_session),
+    json = {"user_id": two_session["user_id"],
+            "reason": "You smell."}
+  )
+  assert response_ban_two.ok, "Failed to ban two."
+  logging.info("[Test 12] One succesfully banned two")
+  
+  # One: Send a message
+  response_message_one = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(one_session),
+    json=text_message(MSG1_SUCCES)
+  )
+  assert response_message_one.ok, "One failed to send a message"
+  logging.info("[Test 12] One succesfully sent a message")
+  
+  # Two: fail to read messages without filter
+  response_two_reading = requests.get(
+    FULL_URL + "rooms/" + room_id + "/messages",
+    headers=get_auth_header(two_session)
+  )
+  assert response_two_reading.status_code == 403
+  logging.info("[Test 12] Two succesfully failed to read messages. (No permission)")
+  
+  # Two: fail to read messages with filter
+  response_two_reading = requests.get(
+    FULL_URL + "rooms/" + room_id + MESSAGES_WITH_FILTER,
+    headers=get_auth_header(two_session)
+  )
+  assert response_two_reading.status_code == 403
+  logging.info("[Test 12] Two succesfully failed to read messages (No permission).")
+
 TESTS = {
   "1": test1,
   "2": test2,
@@ -724,12 +792,16 @@ TESTS = {
   # "10": test10,
   "11": test11,
   "12": test12,
+  "13": test13,
 }
   
 if (len(sys.argv) <= 1):
   print("Specifiy the test to run in the argument")
   exit()
 else:
+  if not sys.argv[1] in TESTS:
+    print(f"test {sys.argv[1]} does not exist, skipping.")
+    exit()
   print(f"\nRestarting synapse server for test {sys.argv[1]}")
   subprocess.run(["docker", "restart", "synapse"])
   sleep(3)
