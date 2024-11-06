@@ -24,5 +24,6 @@ Run all tests:
 
 Run a specific test:
 ```sh
-python3 test_matrix.py 1
+python3 test_matrix.py n
 ```
+(Where `n` is the number of the test that you want to run.)
