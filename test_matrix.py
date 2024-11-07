@@ -401,7 +401,7 @@ def test3():
       "reason": "You smell."
     }
   )
-  assert response_kick_two.ok
+  assert response_kick_two.ok, "Three failed to kick two, even though they had the required power level."
   logging.info("[Test 3] Two succesfully kicked three.")
   # Three: fail to send message
   response_send_message_3 = requests.put(
@@ -482,7 +482,7 @@ def test4():
     FULL_URL + "join/" + hotel_id,
     headers=get_auth_header(two_session),
   )
-  assert response_join_two.ok
+  assert response_join_two.ok, "Two could not join the hotel, even though they were in the lobby."
   logging.info("[Test 4] Two joined the hotel succesfully.")
   logging.info("[Test 4] Succes.")
 
@@ -701,7 +701,7 @@ def test11():
     headers=get_auth_header(two_session)
   )
   assert response_two_reading.ok
-  assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after were kicked out of the room"
+  assert str(response_two_reading.json()).find(MSG1_SUCCES) == -1, "Two could read a message that was sent after were kicked out of the room"
   logging.info("[Test 11] Two succesfully failed to read messages.")
   
   
@@ -711,7 +711,7 @@ def test11():
     headers=get_auth_header(two_session)
   )
   assert response_two_reading.ok
-  assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after were kicked out of the room"
+  assert str(response_two_reading.json()).find(MSG1_SUCCES) == -1, "Two could read a message that was sent after were kicked out of the room"
   logging.info("[Test 11] Two succesfully failed to read messages with filter.")
 
 # test 12: Left user information leak
@@ -770,7 +770,7 @@ def test12():
     headers=get_auth_header(two_session)
   )
   assert response_two_reading.ok
-  assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after they left the room"
+  assert str(response_two_reading.json()).find(MSG1_SUCCES) == -1, "Two could read a message that was sent after they left the room"
   logging.info("[Test 12] Two succesfully failed to read messages.")
   
   # Two: fail to read messages with filter
@@ -779,7 +779,7 @@ def test12():
     headers=get_auth_header(two_session)
   )
   assert response_two_reading.ok
-  assert not str(response_two_reading.json()).find(MSG1_SUCCES), "Two could read a message that was sent after they left the room"
+  assert str(response_two_reading.json()).find(MSG1_SUCCES) == -1, "Two could read a message that was sent after they left the room"
   logging.info("[Test 12] Two succesfully failed to read messages with filter.")
 
 # test 13: Banned user information leak
