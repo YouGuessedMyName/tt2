@@ -648,6 +648,322 @@ def test7():
   # One: Read messages from the room.
   # This part was left out of the test due to an issue
 
+# Test 8: Leaving a room should prevent you from sending messages, and retrieving messages from after you left
+def test8():
+  # One: Create a new public room
+  create_room_json8 = create_room_json("public_chat")
+  response_create_room8 = requests.post(
+    FULL_URL + "createRoom",
+    headers=get_auth_header(one_session),
+    json = create_room_json8
+  )  
+  assert response_create_room8.ok, "Failed to create room."
+  logging.info("[Test 8] One created room successfully")
+  room_id = response_create_room8.json()["room_id"]
+
+  # Two: Join the room
+  response_join_room8 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers = get_auth_header(two_session)
+  )
+  assert response_join_room8.ok, "Failed to join room."
+  logging.info("[Test 8] Two joined room successfully")
+
+  # Two: Send a message in the room
+  MSG8_SUCCESS1 = "Message from two that should succeed"
+  response_send_message_8_1 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(two_session),
+    json=text_message(MSG8_SUCCESS1)
+  )
+  assert response_send_message_8_1.ok, "Failed to send message"
+  logging.info("[TEST 8] Two succesfully sent a message.")
+
+  # Two: Leave the room
+  response_leave_room = requests.post(
+    FULL_URL + "rooms/" + room_id + "/leave",
+    headers = get_auth_header(two_session)
+  )
+  assert response_leave_room.ok, "Failed to leave room."
+  logging.info("[Test 8] Two left the room successfully.")
+
+  # One: check members of the room
+  response_get_members = requests.get(
+    FULL_URL + "rooms/" + room_id + "/members",
+    headers = get_auth_header(one_session)
+  )
+  assert response_get_members.ok, "Failed to get member list"
+  logging.info("[Test 8] One retrieved member list successfully")
+  
+  # Check if member information is correct
+  logging.info("[Test 8] Checking member list for correct statuses.")
+  members_list = response_get_members.json().get("chunk", [])
+  user_one_in_room = False
+  user_two_left_room = False
+
+  for member in members_list:
+      user_id = member.get("user_id")
+      membership_status = member.get("content", {}).get("membership")
+
+      if user_id == "@one:my.matrix.host" and membership_status == "join":
+          user_one_in_room = True
+          logging.info("[Test 8] One is in the room as expected.")
+      elif user_id == "@two:my.matrix.host" and membership_status == "leave":
+          user_two_left_room = True
+          logging.info("[Test 8] Two has left the room as expected.")
+  assert user_one_in_room, "[Test 8] One is not in the room when they should be."
+  assert user_two_left_room, "[Test 8] Two is still in the room when they should have left."
+
+  # Two: Send a message in the room (should fail)
+  MSG8_FAIL = "Message from two that should fail"
+  response_send_message_8_2 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message" + random_number_string(),
+    headers = get_auth_header(two_session),
+    json = text_message(MSG8_FAIL)
+  )
+  error_message = response_send_message_8_2.json().get("error", "No error message provided")
+  if response_send_message_8_2.status_code == 403: 
+    # Expected outcome: Two fails to send message
+    logging.info("[Test 8] Two failed to send a messages successfully")
+  elif response_send_message_8_2.status_code == 200: 
+    # Unexpected outcome: Two was able to send a message
+    logging.info("[Test 8] One was wrongly able to send a message")
+  else:
+    # Other outcome: Unexpected response status code
+    logging.info(f"[Test 8] Unexpected response status code {error_message} {response_send_message_8_2.status_code}")
+
+  response = requests.get(
+    FULL_URL + f"rooms/{room_id}/messages?filter=%7B%22types%22%3A%5B%22m.room.message%22%5D%7D",
+    headers=get_auth_header(one_session)
+  )
+  assert response.ok, "Failed to retrieve messages."
+
+  # One: Check to see if the message from 2 is there
+  response_messages = requests.get(
+    FULL_URL + "rooms/" + room_id + MESSAGES_WITH_FILTER,
+    headers = get_auth_header(one_session)
+  )
+  messages = response_messages.json().get("chunk", [])
+  for message in messages:
+    if message.get("content", {}).get("body") == MSG8_SUCCESS1:
+      logging.info("[Test 8] First message from two correctly visible")
+    if message.get("content", {}).get("body") == MSG8_FAIL:
+      logging.info("[Test 8] Second message from two incorrectly visible")
+    else:
+      logging.info("[Test 8] Second message from two is not visible as expected")
+
+  # One: Send a message in the room
+  MSG8_SUCCESS2 = "Message from one that should succeed"
+  response_send_message_8_3 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(one_session),
+    json=text_message(MSG8_SUCCESS2)
+  )
+  assert response_send_message_8_3.ok, "Failed to send message"
+  logging.info("[TEST 8] One succesfully sent a message.")
+
+  # Two: get all messages from the room, not supposed to get the message from One
+  response_messages = requests.get(
+    FULL_URL + "rooms/" + room_id + MESSAGES_WITH_FILTER,
+    headers = get_auth_header(two_session)
+  )
+  messages = response_messages.json().get("chunk", [])
+  for message in messages:
+    if message.get("content", {}).get("body") == MSG8_SUCCESS1:
+      logging.info("[Test 8] First message from two correctly visible")
+    if message.get("content", {}).get("body") == MSG8_FAIL:
+      logging.info("[Test 8] Second message from two incorrectly visible")
+    else:
+      logging.info("[Test 8] Second message from two is not visible as expected")
+    if message.get("content", {}).get("body") == MSG8_SUCCESS2:
+      logging.info("[Test 8] Message from one incorrectly visible")
+    else:
+      logging.info("[Test 8] Message from one is not visible as expected")
+  
+# Test 9: Leaving an invite-only room should prevent you from joining again  
+def test9():
+  # One: Create a new private room
+  create_room_json9 = create_room_json("trusted_private_chat")
+  response_create_room9 = requests.post(
+    FULL_URL + "createRoom",
+    headers=get_auth_header(one_session),
+    json = create_room_json9
+  )  
+  assert response_create_room9.ok, "Failed to create room."
+  logging.info("[Test 9] One created a private room successfully")
+  room_id = response_create_room9.json()["room_id"]
+
+  # One: invite two to the room
+  response_invite_9 = requests.post(
+    FULL_URL + "rooms/" + room_id + "/invite",
+    headers = get_auth_header(one_session),
+    json={
+      "reason": "Two can join room now",
+      "user_id": two_session["user_id"]
+    }
+  )  
+  assert response_invite_9.ok, "Failed to invite two to room"
+  logging.info("[Test 9] Succesfully invited two to room")
+
+  # Two: Join the private room
+  response_join_9 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  assert response_join_9.ok, "Failed to join room"
+  logging.info("[Test 9] Two succesfully joined the room.")
+
+  # Two: send message in the room
+  MSG2_SUCCESS = "Message from two that should succeed"
+  response_send_message_2 = requests.put(
+    FULL_URL + "rooms/" + room_id + "/send/m.room.message/" + random_number_string(),
+    headers=get_auth_header(two_session),
+    json=text_message(MSG2_SUCCESS)
+  )
+  assert response_send_message_2.ok, "Failed to send message"
+  logging.info("[Test 9] Two succesfully sent a message.")
+
+  # Two: Leave the room
+  response_leave_room = requests.post(
+    FULL_URL + "rooms/" + room_id + "/leave",
+    headers = get_auth_header(two_session)
+  )
+  assert response_leave_room.ok, "Failed to leave room."
+  logging.info("[Test 9] Two left the room successfully.")
+
+  # One: check members of the room
+  response_get_members = requests.get(
+    FULL_URL + "rooms/" + room_id + "/members",
+    headers = get_auth_header(one_session)
+  )
+  assert response_get_members.ok, "Failed to get member list"
+  logging.info("[Test 9] One retrieved member list successfully")
+
+  # Check if member information is correct
+  logging.info("[Test 9] Checking member list for correct statuses.")
+  members_list = response_get_members.json().get("chunk", [])
+  user_one_in_room = False
+  user_two_left_room = False
+
+  for member in members_list:
+      user_id = member.get("user_id")
+      membership_status = member.get("content", {}).get("membership")
+
+      if user_id == "@one:my.matrix.host" and membership_status == "join":
+          user_one_in_room = True
+          logging.info("[Test 9] One is in the room as expected.")
+      elif user_id == "@two:my.matrix.host" and membership_status == "leave":
+          user_two_left_room = True
+          logging.info("[Test 9] Two has left the room as expected.")
+  assert user_one_in_room, "One is not in the room when they should be."
+  assert user_two_left_room, "Two is still in the room when they should have left."
+
+  # Two: Try to join room again (should fail)
+  response_rejoin_9 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  if response_rejoin_9.status_code == 403:
+    logging.info("[Test 9] Two failed to rejoin the room as expected")
+  else:
+    assert response_rejoin_9.ok, "Two was able to rejoin the room unexpectedly"
+  
+# Test 10: Leaving a room before joining should prevent you from joining at all.
+def test10():
+  # One: Create a new private room
+  create_room_json10 = create_room_json("trusted_private_chat")
+  response_create_room10 = requests.post(
+    FULL_URL + "createRoom",
+    headers=get_auth_header(one_session),
+    json = create_room_json10
+  )  
+  assert response_create_room10.ok, "Failed to create room."
+  logging.info("[Test 10] One created a private room successfully")
+  room_id = response_create_room10.json()["room_id"]
+
+  # One: invite two to the room
+  response_invite_10 = requests.post(
+    FULL_URL + "rooms/" + room_id + "/invite",
+    headers = get_auth_header(one_session),
+    json={
+      "reason": "Two can join room now",
+      "user_id": two_session["user_id"]
+    }
+  )  
+  assert response_invite_10.ok, "Failed to invite two to room"
+  logging.info("[Test 10] Succesfully invited two to room")
+
+  # Two: Leave the room
+  response_leave_room = requests.post(
+    FULL_URL + "rooms/" + room_id + "/leave",
+    headers = get_auth_header(two_session)
+  )
+  assert response_leave_room.ok, "Failed to leave room."
+  logging.info("[Test 10] Two left the room successfully.")
+
+  # One: check members of the room
+  response_get_members = requests.get(
+    FULL_URL + "rooms/" + room_id + "/members",
+    headers = get_auth_header(one_session)
+  )
+  assert response_get_members.ok, "Failed to get member list"
+  logging.info("[Test 10] One retrieved member list successfully")
+
+  # Check if member information is correct
+  logging.info("[Test 10] Checking member list for correct statuses.")
+  members_list = response_get_members.json().get("chunk", [])
+  user_one_in_room = False
+  user_two_left_room = False
+
+  for member in members_list:
+      user_id = member.get("user_id")
+      membership_status = member.get("content", {}).get("membership")
+
+      if user_id == "@one:my.matrix.host" and membership_status == "join":
+          user_one_in_room = True
+          logging.info("[Test 10] One is in the room as expected.")
+      elif user_id == "@two:my.matrix.host" and membership_status == "leave":
+          user_two_left_room = True
+          logging.info("[Test 10] Two has status leave as expacted.")
+  assert user_one_in_room, "One is not in the room when they should be."
+  assert user_two_left_room, "Two is still in the room when they should have left."
+
+  # Two: Join the private room (should fail)
+  response_join_10 = requests.post(
+    FULL_URL + "join/" + room_id,
+    headers=get_auth_header(two_session),
+  )
+  if response_join_10.status_code == 403:
+    logging.info("[Test 10] Two failed to join the room as expected")
+  else:
+    assert response_join_10.ok, "Two was able to join the room unexpectedly"
+
+  # One: check members of the room
+  response_get_members = requests.get(
+    FULL_URL + "rooms/" + room_id + "/members",
+    headers = get_auth_header(one_session)
+  )
+  assert response_get_members.ok, "Failed to get member list"
+  logging.info("[Test 10] One retrieved member list successfully")
+
+  # Check if member information is correct
+  logging.info("[Test 10] Checking member list for correct statuses.")
+  members_list = response_get_members.json().get("chunk", [])
+  user_one_in_room = False
+  user_two_left_room = False
+
+  for member in members_list:
+      user_id = member.get("user_id")
+      membership_status = member.get("content", {}).get("membership")
+
+      if user_id == "@one:my.matrix.host" and membership_status == "join":
+          user_one_in_room = True
+          logging.info("[Test 10] One is in the room as expected.")
+      elif user_id == "@two:my.matrix.host" and membership_status == "leave":
+          user_two_left_room = True
+          logging.info("[Test 10] Two has status leave as expacted.")
+  assert user_one_in_room, "One is not in the room when they should be."
+  assert user_two_left_room, "Two is still in the room when they should have left." 
 
 # test 11: Kicked user information leak 1
 def test11():
@@ -864,9 +1180,9 @@ TESTS = {
   # "5": test5,
   "6": test6,
   "7": test7,
-  # "8": test8,
-  # "9": test9,
-  # "10": test10,
+  "8": test8,
+  "9": test9,
+  "10": test10,
   "11": test11,
   "12": test12,
   "13": test13,
